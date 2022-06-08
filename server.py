@@ -20,12 +20,12 @@ class ThreadedServer:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
-        self.server_so.listen(5)
+        self.server_socket.listen(5)
         print('--- Server is running ---')
 
     def run(self):
         self.open_socket()
-        input_socket = [self.server]
+        input_socket = [self.server_socket]
 
         while True:
             # select socket
@@ -41,7 +41,6 @@ class ThreadedServer:
                     # handle standard input
                     junk = sys.stdin.readline()
                     break
-        # close all threads
         self.server_socket.close()
         for client_socket in self.threads:
             client_socket.join()
@@ -53,11 +52,10 @@ class FTPthread(threading.Thread):
         self.addr = addr
         self.size = BUFFER_SIZE * 4
         self.workdir = CURRDIR
-        self.currworkdir = self.workdir
+        self.cwd = self.workdir
         self.rest = False
         self.pasv_mode = False
         self.passwd = ''
-        self.running = True
         threading.Thread.__init__(self)
 
     # Show menu when client connected succesfully
@@ -75,24 +73,24 @@ class FTPthread(threading.Thread):
         self.cmd = self.conn.recv(self.size)
         print("Command: " + self.cmd.strip())
         print(self.conn.getpeername())
-        command = self.cmd.strip().partition(' ')[0]
+        command = self.cmd.split()[0]
 
         if command == 'USER':
             for line in open('account.txt', 'r').readlines():
                 # Split on the space, and store the results in a list of two strings
                 auth_info = line.split()
 
-                input_name = self.cmd.strip().partition(' ')[2]
+                input_name = self.cmd.split()[1]
                 if input_name == auth_info[0]:
                     self.login_message = '331 User name okay, need password.\r\n'
                     print('Response: ' + self.login_message.strip(), self.conn.getpeername())
                     self.conn.send(self.login_message)
 
                     self.cmd = self.conn.recv(self.size)
-                    command = self.cmd.strip().partition(' ')[0]
+                    command = self.cmd.split()[0]
                     
                     if command == "PASS":
-                        input_password = self.cmd.strip().partition(' ')[2]
+                        input_password = self.cmd.split()[1]
 
                         if input_password == auth_info[1]:
                             self.login_message = '230 User logged in, proceed.\r\n'
@@ -120,15 +118,186 @@ class FTPthread(threading.Thread):
         cmd = self.conn.recv(self.size)
         print("Command: " + self.message.strip())
         print(self.conn.getpeername())
-        command = cmd.strip().partition(' ')[0]
+        command = cmd.split()[0]
 
         if command == "QUIT":
-            quit(cmd)
-
-    def quit(self, cmd):
+            fquit(cmd)
+        elif command == "CWD":
+            fcwd(cmd)
+        elif command == "RETR":
+            retr(cmd)
+        elif command == "RNFR":
+            rnfr(cmd)
+        elif command == "DELE":
+            dele(cmd)
+        elif command == "RMD":
+            rmd(cmd)
+        elif command == "MKD":
+            mkd(cmd)
+        elif command == "PWD":
+            pwd(cmd)
+        elif command == "LIST":
+            flist(cmd)
+        elif command == "HELP":
+            fhelp(cmd)
+        else:
+            self.message = "500 Syntax error, command unrecognized.\r\n"
+            print("Respon: " + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+            self.login_menu()
+        
+    def fquit(self, cmd):
         self.login_message = "221 Service closing control connection.\r\n"
         self.conn.send(self.login_message)
         print("Respon: " + self.login_message.strip())
         print(self.conn.getpeername())
-        self.stop()
+        self.conn.close()
     
+    def fcwd(self, cmd):
+        chwd = cmd.split()[1]
+        if chwd == '/':
+            self.cwd = self.workdir
+        elif chwd[0] == '/':
+            self.cwd = os.path.join(self.workdir, cmd.split()[1])
+        else:
+            self.cwd = os.path.join(self.cwd, chwd)
+        self.conn.send('250 Requested file action okay, completed.\r\n')
+        self.login_menu()
+    
+    def retr(self, cmd):
+        file_name = cmd.split()[1]
+        path = os.path.join(self.cwd, file_name)
+        check = os.path.isfile(path)
+        file_size = os.path.getsize(path)
+        print('Download: ', file_name)
+        self.conn.send('File exist: ' + str(check))
+        self.conn.send('File size: ' + str(file_size))
+        data = ""
+
+        if check:
+            with open(path, 'rb') as f:
+                while file_size:
+                    data += f.read()
+                    file_size -= len(data)
+            self.conn.sendall(data)
+            self.message = '226 Closing data connection. Requested file action successful\r\n'
+            print("Response: " + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+        else:
+            self.message = "501 Syntax error in parameters or arguments.\r\n"
+            print("Response: " + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+        
+        self.login_menu()
+    
+    def rnfr(self, cmd):
+        file_name = cmd.split()[1]
+        path = os.path.join(self.cwd, file_name)
+        checkDir = os.path.isdir(path)
+        checkFile = os.path.isfile(path)
+
+        if checkDir:
+            self.message = "350 Requested file action pending further information.\r\n"
+            print("Response: " + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+            cmd = self.conn.recv(self.size)
+            if 'RNTO' in cmd:
+                print("Command: " + cmd.strip())
+                print(self.conn.getpeername())
+                name = os.path.join(self.cwd, self.command.strip().split(' ')[1]) 
+                rename = os.rename(path, name)
+                self.message = '250 Requested file action okay, completed.\r\n'
+                print('Response: ' + self.message.strip())
+                print(self.conn.getpeername())
+                self.conn.send(self.message)
+            else:
+                self.message = '501 Syntax error in parameters or arguments.\r\n'
+                print('Response: ' + self.message.strip())
+                print(self.conn.getpeername())
+                self.conn.send(self.message)
+            self.login_menu()
+
+    def dele(self, cmd):
+        self.chwd = cmd.split()[1]
+        file_name = os.path.join(self.cwd, self.chwd)
+        self.allow_delete = os.path.isfile(file_name)
+        if self.allow_delete:
+            os.remove(file_name)
+            self.message = '250 Requested file action okay, completed.\r\n'
+            print('Response: ' + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+        else:
+            self.conn.send('450 Requested file action not taken.\nFile unavailable (e.g., file busy).\r\n')  
+        self.login_menu()
+
+    def rmd(self, cmd):
+        self.chwd = cmd.split()[1]
+        dir_name = os.path.join(self.cwd, self.chwd)
+        self.allow_delete = os.path.isdir(dir_name)
+
+        if self.allow_delete:
+            os.rmdir(dir_name)
+            self.message = '250 Requested file action okay, completed.\r\n'
+            print('Response: ' + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+        else:
+            self.message = '550 Requested action not taken.\nFile unavailable (e.g., file not found, no access).\r\n'
+            print('Response: ' + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+        self.login_menu()
+
+    def mkd(self, cmd):
+        self.chwd = cmd.split()[1]
+        dir_name = os.path.join(self.cwd, self.chwd)
+        self.allow_make = os.path.isdir(dir_name)
+        if self.allow_make:
+            self.message = '550 Requested action not taken.\nFile unavailable (e.g., file not found, no access).\r\n'
+            print('Response: ' + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)
+        else:
+            os.mkdir(dn)
+            self.message = '250 Requested file action okay, completed.\r\n'
+            print('Response: ' + self.message.strip())
+            print(self.conn.getpeername())
+            self.conn.send(self.message)  
+        self.login_menu()
+
+    def pwd(self, cmd):
+        cwd = os.path.relpath(self.cwd, self.workdir)
+        if cwd == '.':
+            cwd = '/'
+        else:
+            cwd = '/'+cwd
+        self.message = '257 ' + self.cwd + ' is current directory.\r\n'
+        print('Response: ' + self.message.strip())
+        print(self.conn.getpeername())
+        self.conn.send(self.message)
+        self.login_menu()
+    
+    def flist(self, cmd):
+        message = ('150 File status okay; about to open data connection.\n')
+        dirList = os.listdir(self.cwd)
+        for x in dirList:
+            temp = os.path.join(self.cwd, x)
+            message = message + temp + '\n'
+        self.conn.send(message)
+        self.conn.send('226 Closing data connection.\nRequested file action successful (for example, file transfer or file abort).')
+        self.login_menu()
+
+    def fhelp(self, cmd):
+        self.conn.send(
+            '214 The following commands are recognized:\nUSER PASS CWD QUIT RETR STOR RNFR RNTO DELE RMD MKD PWD LIST HELP\r\n')
+        self.login_menu()
+
+
+if __name__ == '__main__':
+    s = ThreadedServer()
+    s.run()
