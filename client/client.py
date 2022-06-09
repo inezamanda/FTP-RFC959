@@ -29,25 +29,53 @@ if client_socket.connect:
             print(user_msg.decode())
         
         elif cmd == "QUIT":
-            client_socket.send(cmd)
+            client_socket.send(cmd.encode())
             user_msg = client_socket.recv(10000)
             print(user_msg.decode())
             break
+        
+        elif cmd == "PWD":
+            client_socket.send(cmd.encode())
+            user_msg = client_socket.recv(10000)
+            print(user_msg.decode())
+
+        elif cmd == "HELP":
+            client_socket.send(cmd.encode())
+            user_msg = client_socket.recv(10000)
+            print(user_msg.decode())
+
+        elif cmd == "LIST":
+            client_socket.send(cmd.encode())
+            user_msg = client_socket.recv(10000)
+            print(user_msg.decode())
+        
+        elif cmd == "MKD":
+            foldername = input("Input directory name to be created: ")
+            command = ('MKD {}'.format(foldername).encode())
+            client_socket.send(command)
+            user_msg = client_socket.recv(10000)
+            print(user_msg.decode())
+        
+        elif cmd == "RMD":
+            foldername = input("Input directory name to be removed: ")
+            command = ('RMD {}'.format(foldername).encode())
+            client_socket.send(command)
+            user_msg = client_socket.recv(10000)
+            print(user_msg.decode())
 
         elif cmd == "STOR":
             fn = input("Input file name to be uploaded: ")
-            command = ("STOR {}".format(fn).encode())
-            client_socket.send(command)
+            command = ("STOR {}".format(fn))
+            client_socket.send(command.encode())
 
             file_name = command.split()[1]
             local = os.getcwd()
-            path = os.path.join(local, 'download')
-            upload = os.path.join(path, file_name)
+            upload = os.path.join(local, file_name)
             check = os.path.isfile(upload)
             file_size = os.path.getsize(upload)
 
-            client_socket.send(str(check))
-            client_socket.send(str(file_size))
+            client_socket.send(str(check).encode())
+            client_socket.send(str(file_size).encode())
             data = ""
 
             if check:
@@ -56,36 +84,40 @@ if client_socket.connect:
  
                 with open(upload, 'rb') as f:
                     while file_size:
-                        data += f.read()
+                        data += f.read().decode()
                         file_size -= len(data)
-                client_socket.sendall(data)
+                client_socket.sendall(data.encode())
 
             user_msg = client_socket.recv(4096)
             print(user_msg.decode())
 
         elif cmd == 'RETR':
             fn = input("Input file name to be downloaded: ")
-            command = ("RETR {}".format(fn).encode())
-            client_socket.send(command)
+            command = ("RETR {}".format(fn))
+            client_socket.send(command.encode())
 
             file_name = command.split()[1]
             local = os.getcwd()
-            path = os.path.join(local, 'download')
-            download = os.path.join(path, file_name)
-            check = client_socket.recv(4)
-            file_size = int(client_socket.recv(4096))
-            data=""
+            download = os.path.join(local, file_name)
+            check = client_socket.recv(BUFFER_SIZE)
+            file_size = (client_socket.recv(BUFFER_SIZE))
+
+            data="".encode()
             
-            if check == 'True':
+            if 'True' in check.decode():
                 user_msg = client_socket.recv(4096)
+                print("masuk")
                 print(user_msg.strip().decode())
                 
-                # print(client_socket.getpeername().decode())
                 with open(download, 'wb') as f:
                     while file_size:
+                        print(1)
                         data = client_socket.recv(4096)
+                        print(2)
                         f.write(data)
+                        print(data)
                         file_size -= len(data)
+                        print(file_size)
                         
             user_msg = client_socket.recv(4096)
             print(user_msg.strip().decode())
@@ -98,16 +130,20 @@ if client_socket.connect:
             user_msg = client_socket.recv(10000)
             print(user_msg.decode())
 
-            if '350' in user_msg:
-                new = input("Input new directory name: ")
-                command = ("RNTO {}".format(fn).encode())
-                client_socket.send(command.encode())
+            if '350' in user_msg.decode():
+                new = input("Input new file or directory name: ")
+                command = ("RNTO {}".format(new).encode())
+                client_socket.send(command)
             
             user_msg = client_socket.recv(10000)
             print(user_msg.decode())
-                        
-        else:
+        
+        elif cmd == "DELE":
+            file_name = input("Input file name to be deleted: ")
+            command = ('DELE {}'.format(file_name).encode())
+            client_socket.send(command)
             user_msg = client_socket.recv(10000)
-            print(user_msg.strip().decode())
+            print(user_msg.decode())
+                        
 
 client_socket.close()
