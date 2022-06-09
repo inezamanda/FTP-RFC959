@@ -36,9 +36,10 @@ def retr(self, cmd):
                     file_size -= len(data)
             self.conn.sendall(data.encode())
             self.message = '226 Closing data connection. Requested file action successful\r\n'
-            print("Response: " + self.message.strip())
-            print(self.conn.getpeername())
+            # print("Response: " + self.message.strip())
             self.conn.send(self.message.encode())
+            print(self.conn.getpeername())
+            print("Response: " + self.message.strip())
         else:
             self.message = "501 Syntax error in parameters or arguments.\r\n"
             print("Response: " + self.message.strip())

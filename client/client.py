@@ -105,19 +105,12 @@ if client_socket.connect:
             data="".encode()
             
             if 'True' in check.decode():
-                user_msg = client_socket.recv(4096)
                 print("masuk")
-                print(user_msg.strip().decode())
-                
+                data = client_socket.recv(4096)
                 with open(download, 'wb') as f:
-                    while file_size:
-                        print(1)
-                        data = client_socket.recv(4096)
-                        print(2)
-                        f.write(data)
-                        print(data)
-                        file_size -= len(data)
-                        print(file_size)
+                    print(1)
+                    # data = client_socket.recv(4096)
+                    f.write(data)
                         
             user_msg = client_socket.recv(4096)
             print(user_msg.strip().decode())
