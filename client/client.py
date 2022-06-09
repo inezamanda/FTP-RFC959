@@ -107,14 +107,14 @@ if client_socket.connect:
                 accepted = ''.encode()
 
                 with open(download, 'wb') as file:
-                    while file_size > len(accepted):
+                    while file_size :
                         data = client_socket.recv(BUFFER_SIZE*4)
                         # print(data)
                         if not data:
                             break
                         accepted += data
                         file.write(data)
-                        # file_size -= len(data)
+                        file_size -= len(data)
                         
             user_msg = client_socket.recv(BUFFER_SIZE*4)
             print(user_msg.strip().decode())
