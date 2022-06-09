@@ -1,4 +1,5 @@
 import os
+import ftplib
 
 def fquit(self):
         self.login_message = "221 Service closing control connection.\r\n"
@@ -27,14 +28,18 @@ def retr(self, cmd):
         print('Download: ', file_name)
         self.conn.send(str(check).encode())
         self.conn.send(str(file_size).encode())
-        data = ""
+        data = bytes()
 
         if check:
-            with open(path, 'rb') as f:
-                while file_size:
-                    data += f.read().decode()
-                    file_size -= len(data)
-            self.conn.sendall(data.encode())
+            # with open(path, 'rb') as f:
+            #     while file_size:
+            #         data += f.read()
+            #         file_size -= len(data)
+            f = open(path, 'rb')
+            data = f.read(1024)
+            while data:
+                self.conn.send(data)
+                data = f.read(1024)
             self.message = '226 Closing data connection. Requested file action successful\r\n'
             # print("Response: " + self.message.strip())
             self.conn.send(self.message.encode())

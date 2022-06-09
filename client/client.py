@@ -1,4 +1,5 @@
 import socket, time, os
+import ftplib
 
 # Constants
 HOST = "localhost"
@@ -102,16 +103,21 @@ if client_socket.connect:
             check = client_socket.recv(BUFFER_SIZE)
             file_size = (client_socket.recv(BUFFER_SIZE))
 
-            data="".encode()
+            data=''.encode()
             
             if 'True' in check.decode():
                 print("masuk")
                 data = client_socket.recv(4096)
-                with open(download, 'wb') as f:
-                    print(1)
-                    # data = client_socket.recv(4096)
+                f = open(download, 'wb')
+                # with open(download, 'wb') as f:
+                #     print(1)
+                #     f.write(data)
+                while True :
+                    if not data:
+                        break
                     f.write(data)
-                        
+                    data = client_socket.recv(4096)
+
             user_msg = client_socket.recv(4096)
             print(user_msg.strip().decode())
 
