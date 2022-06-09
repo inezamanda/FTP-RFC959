@@ -76,17 +76,15 @@ if client_socket.connect:
 
             client_socket.send(str(check).encode())
             client_socket.send(str(file_size).encode())
-            data = ""
 
             if check:
                 user_msg = client_socket.recv(4096)
                 print(user_msg.decode())
  
                 with open(upload, 'rb') as f:
-                    while file_size:
-                        data += f.read().decode()
-                        file_size -= len(data)
-                client_socket.sendall(data.encode())
+                    data = f.read()
+                    print(f.read())
+                client_socket.sendall(data)
 
             user_msg = client_socket.recv(4096)
             print(user_msg.decode())
@@ -99,20 +97,26 @@ if client_socket.connect:
             file_name = command.split()[1]
             local = os.getcwd()
             download = os.path.join(local, file_name)
-            check = client_socket.recv(BUFFER_SIZE)
-            file_size = (client_socket.recv(BUFFER_SIZE))
+            check = client_socket.recv(4).decode()
+            file_size = int(client_socket.recv(BUFFER_SIZE).decode())
 
-            data="".encode()
+            data=""
             
-            if 'True' in check.decode():
+            if check == 'True':
                 print("masuk")
-                data = client_socket.recv(4096)
-                with open(download, 'wb') as f:
-                    print(1)
-                    # data = client_socket.recv(4096)
-                    f.write(data)
+                accepted = ''.encode()
+
+                with open(download, 'wb') as file:
+                    while file_size > len(accepted):
+                        data = client_socket.recv(BUFFER_SIZE*4)
+                        # print(data)
+                        if not data:
+                            break
+                        accepted += data
+                        file.write(data)
+                        # file_size -= len(data)
                         
-            user_msg = client_socket.recv(4096)
+            user_msg = client_socket.recv(BUFFER_SIZE*4)
             print(user_msg.strip().decode())
 
         elif cmd == 'RNFR':

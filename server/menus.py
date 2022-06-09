@@ -31,10 +31,9 @@ def retr(self, cmd):
 
         if check:
             with open(path, 'rb') as f:
-                while file_size:
-                    data += f.read().decode()
-                    file_size -= len(data)
-            self.conn.sendall(data.encode())
+                data = f.read()      
+            self.conn.sendall(data)
+            
             self.message = '226 Closing data connection. Requested file action successful\r\n'
             # print("Response: " + self.message.strip())
             self.conn.send(self.message.encode())
@@ -188,12 +187,14 @@ def stor(self, cmd):
             print(self.conn.getpeername())
             self.conn.send(self.message.encode())
 
+            accepted = ''.encode()
             with open(path, 'wb') as file:
-                while file_size:
-                    data = self.conn.recv(self.size).decode()
+                while file_size :
+                    data = self.conn.recv(self.size)
                     if not data:
                         break
-                    file.write(data.encode())
+                    accepted += data
+                    file.write(data)
                     file_size -= len(data)
             self.message = '226 Closing data connection.\nRequested file action successful (for example, file transfer or file abort).'
             print("Response: " + self.message.strip())
